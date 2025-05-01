@@ -78,7 +78,6 @@ export const updateUser = async (req, res) => {
     const {
       username,
       email,
-      phoneNumber,
       gender,
       country,
       currentPassword,
@@ -137,7 +136,6 @@ export const updateUser = async (req, res) => {
     user.bio = bio || user.bio;
     user.gender = gender || user.gender;
     user.country = country || user.country;
-    user.phoneNumber = phoneNumber || user.phoneNumber;
     user.profileImg = updatedProfileImg;
 
     await user.save();

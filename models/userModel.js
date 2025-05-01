@@ -17,12 +17,6 @@ const userSchema = new mongoose.Schema(
       trim: true,
       lowercase: true,
     },
-    phoneNumber: {
-      type: String,
-      required: false,
-      default: null,
-      trim: true,
-    },
     profileImg: {
       type: String,
       default: "",
