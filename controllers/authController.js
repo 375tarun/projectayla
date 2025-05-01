@@ -1,182 +1,91 @@
 import userModel from "../models/userModel.js";
-import { hashPasword , comparePassword} from "../utils/authUtils.js";
 import jwt from "jsonwebtoken";
-import nodemailer from "nodemailer";
-// Function to generate OTP
-const generateOTP = () =>
-  Math.floor(100000 + Math.random() * 900000).toString();
+import { sendEmail } from "../utils/sendEmail.js";
+import { encryptRefreshToken, generateOTP } from './../utils/encryptionAndOtp.js';
+import bcrypt from 'bcrypt';
 
-// Email transporter setup (use environment variables)
-const transporter = nodemailer.createTransport({
-  service: "Gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
 
-// Send OTP to email
-export const sendEmailOTP = async (req, res) => {
-  try {
-    const { email } = req.body;
-
-    if (!email) return res.status(400).json({ error: "Email is required" });
-
-    const otp = generateOTP();
-    const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // Expires in 10 min
-
-    let user = await userModel.findOne({ email });
-
-    if (!user) {
-      user = new userModel({
-        email,
-        emailOTP: otp,
-        emailOTPExpires: otpExpires,
-      });
-    } else {
-      user.emailOTP = otp;
-      user.emailOTPExpires = otpExpires;
-    }
-
-    await user.save();
-
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: "Email Verification OTP",
-      text: `Your OTP for email verification is: ${otp}`,
-    });
-
-    res.json({ success: true, message: "OTP sent to email" });
-  } catch (error) {
-    console.error(error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Error sending OTP",
-        error: error.message,
-      });
-  }
-};
-
-// Verify OTP before allowing signup
-export const verifyEmailOTP = async (req, res) => {
-  try {
-    const { email, otp } = req.body;
-
-    const user = await userModel.findOne({ email });
-
-    if (!user || user.emailOTP !== otp || user.emailOTPExpires < new Date()) {
-      return res.status(400).json({ error: "Invalid or expired OTP" });
-    }
-
-    user.isEmailVerified = true;
-    user.emailOTP = null;
-    user.emailOTPExpires = null;
-    await user.save();
-
-    res.json({ success: true, message: "Email verified successfully!" });
-  } catch (error) {
-    console.error(error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Error verifying OTP",
-        error: error.message,
-      });
-  }
-};
-
-// Signup (Only after email verification)
 export const signup = async (req, res) => {
   try {
-    const { username, email, phoneNumber, password, gender, country, bio } =
-      req.body;
+    const { username, email, password, gender, country, bio } = req.body;
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({ error: "Invalid email format" });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide a valid email."
+      })
     }
-    
-    // Validation
+
     if (
       !username ||
-      !email ||
-      !phoneNumber ||
       !gender ||
       !password ||
       !country ||
       !bio
     ) {
-      return res.status(400).json({ error: "All fields are required" });
+      return res.status(400).json({ success: false, error: "All fields are required" });
     }
+
     const existingUser = await userModel.findOne({ email });
     if (existingUser) {
-        return res.status(400).json({
-            success: false,
-            message: "User already exists, please login",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "User already exists, please login",
+      });
     }
 
-    // Check if user exists
-    // const existingUser = await userModel.findOne({ email });
-    // if (!existingUser || !existingUser.isEmailVerified) {
-    //   return res.status(400).json({ success: false, message: "Please verify your email first" });
-    // }
-
-    // password validation
-    if (password.length < 6) {
+    if (!/^(?=.*[A-Z])(?=.*[!@#$%^&*()_+{}\[\]:;<>,.?/~\\-])(?=.{8,}).*$/.test(password)) {
       return res
         .status(400)
         .json({
           success: false,
-          message: "Password must be at least 6 characters long",
+          message: "Password must be at least 8 characters long and must have a special character and one capital letter",
         });
     }
-
-    // Hash password & create user
-    const hashedPassword = await hashPasword(password);
-
-    // new user creation
 
     const newUser = await new userModel({
       username,
       email,
-      phoneNumber,
-      password: hashedPassword,
+      password,
       gender,
       country,
       bio,
+      isEmailVerified: true
     }).save();
 
-    // Generate JWT token
-    const token = jwt.sign({ _id: newUser._id }, process.env.JWT_SECRET, {
-      expiresIn: "1h",
-    });
-   
-      res.status(201).json({
-        success: true,
-        message: "User signed up successfully",
+    const accessToken = await newUser.generateToken();
+    let refreshToken = await newUser.generateRefreshToken();
+
+    newUser.refreshToken = refreshToken;
+    await newUser.save()
+
+    refreshToken = encryptRefreshToken(refreshToken);
+
+    res.status(201).json({
+      success: true,
+      message: "User signed up successfully",
+      user: {
         _id: newUser._id,
         username: newUser.username,
         email: newUser.email,
         gender: newUser.gender,
         country: newUser.country,
         bio: newUser.bio,
-        phoneNumber: newUser.phoneNumber,
-        token,
-      });
-    }
-   catch (error) {
+        isEmailVerified: newUser.isEmailVerified
+      },
+      token: {
+        accessToken,
+        refreshToken
+      }
+    });
+  }
+  catch (error) {
     console.error(error);
     res
       .status(500)
       .json({
         success: false,
-        message: "Error in signup",
-        error: error.message,
+        message: "Something Went Wrong. Please try again sometime later.",
       });
   }
 };
@@ -185,59 +94,146 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Validation
     if (!email || !password) {
-        return res.status(400).json({
-            success: false,
-            message: "Email and password are required",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Email and password are required",
+      });
     }
 
-    // Check user existence
     const user = await userModel.findOne({ email });
     if (!user) {
-        return res.status(404).json({
-            success: false,
-            message: "Email not registered, please signup",
-        });
+      return res.status(404).json({
+        success: false,
+        message: "User not found.",
+      });
     }
 
-    // Compare password
-    const match = await comparePassword(password, user.password);
+    if (!user.isEmailVerified) {
+      return res.status(403).json({
+        success: false,
+        message: "User not verified.",
+      });
+    }
+
+    const match = await user.matchPassword(password);
     if (!match) {
-        return res.status(401).json({
-            success: false,
-            message: "Incorrect password",
-        });
+      return res.status(401).json({
+        success: false,
+        message: "Email or Password is not correct",
+      });
     }
 
-    // Generate JWT token
-    const token = jwt.sign(
-        { _id: user._id },
-        process.env.JWT_SECRET,
-        { expiresIn: "1h" }
-    );
+    const accessToken = await user.generateToken();
+    let refreshToken = await user.generateRefreshToken();
+    console.log(refreshToken)
+
+    user.refreshToken = refreshToken;
+    await user.save()
+
+    refreshToken = encryptRefreshToken(refreshToken);
 
     res.status(200).json({
-        success: true,
-        message: "User logged in successfully",
-        user: {
-          _id: user._id,
-          username: user.username,
-          email: user.email,
-          gender: user.gender,
-          country: user.country,
-          bio: user.bio,
-          phoneNumber: user.phoneNumber
-        },
-        token,
+      success: true,
+      message: "User logged in successfully",
+      user: {
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+        gender: user.gender,
+        country: user.country,
+        bio: user.bio,
+        isEmailVerified: user.isEmailVerified
+      },
+      token: {
+        accessToken,
+        refreshToken
+      }
     });
-} catch (error) {
+  } catch (error) {
     console.error(error);
     res.status(500).json({
-        success: false,
-        message: "Error in login",
-        error: error.message,
+      success: false,
+      message: "Something Went Wrong. Please try again sometime later.",
     });
+  }
+};
+
+export const sendOtpEmail = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide a valid email."
+      })
+    }
+
+    const user = await userModel.findOne({ email: email });
+
+    if (user) {
+      return res.status(400).json({
+        success: false,
+        message: "User already exists with this email."
+      })
+    }
+
+    const otp = generateOTP();
+    const encryptedOtp = await bcrypt.hash(otp, 10);
+
+    const messageToSend = `Hello,\n\nYour OTP for email verification is: ${otp}\n\nPlease use this OTP to verify your email address.\n\nThank you!`;
+
+    const result = await sendEmail({
+      email: email,
+      subject: "OTP for Ayla Registration.",
+      message: messageToSend,
+    });
+    if (result.success) {
+      return res.status(200).json({
+        success: true,
+        message: "OTP sent to email successfully",
+        otp: encryptedOtp
+      });
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: result.message,
+      });
+    }
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: "Something Went Wrong. Please try again sometime later.",
+    });
+  }
 }
+
+export const newAccessToken = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const user = await userModel.findOne({ _id: userId });
+
+    const token = req.token;
+
+    if (token !== user.refreshToken)
+      return res
+        .status(403)
+        .json({ success: false, message: "Invalid refresh token" });
+
+    const accesstoken = await user.generateToken();
+
+    return res.status(200).json({
+      success: true,
+      message: "new access token",
+      data: accesstoken,
+    });
+  } catch (error) {
+    console.error("Error refreshing token:", error);
+    return res
+      .status(403)
+      .json({ success: false, message: "Invalid or expired refresh token" });
+  }
 };

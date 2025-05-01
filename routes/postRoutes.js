@@ -1,16 +1,18 @@
-import  express  from 'express';
-import {commentOnPost,createPost,deletePost,likeUnlikePost,getAllPost, editPost} from '../controllers/postController.js'
+import express from 'express';
+import { commentOnPost, createPost, deletePost, likeUnlikePost, getAllPost, editPost, getCommentsByPost } from '../controllers/postController.js'
+import { authCheck } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
 
-router.post("/create",createPost);
-router.delete("/delete/:id",deletePost);
-router.post("/edit/:id",editPost);
-router.post("/like/:id",likeUnlikePost);
-router.post("/comment/:id",commentOnPost);
-router.get("/",getAllPost);
+router.get("/", authCheck,getAllPost);
+router.post("/create", authCheck, createPost);
+router.get("/like/:id",authCheck, likeUnlikePost);
+router.post("/comment/:id", authCheck, commentOnPost);
+router.get("/post-comments/:id", authCheck, getCommentsByPost);
 
+router.delete("/delete/:id",authCheck, deletePost);
+router.post("/edit/:id", authCheck,editPost);
 
 
 export default router

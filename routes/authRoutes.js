@@ -1,18 +1,12 @@
 import express from "express";
-import { signup, login, sendEmailOTP, verifyEmailOTP } from "../controllers/authController.js";
+import { signup, login, sendOtpEmail, newAccessToken} from "../controllers/authController.js";
+import { authMiddleware } from './../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
-// Send OTP to email
-// router.post("/send-otp", sendEmailOTP);
-
-// Verify OTP before allowing signup
-// router.post("/verify-otp", verifyEmailOTP);
-
-// Signup (Only allowed after email verification)
+router.post("/send-otp-email", sendOtpEmail);
 router.post("/signup", signup);
-
-// Login
 router.post("/login", login);
+router.get("/new-access-token", authMiddleware, newAccessToken);
 
 export default router;
