@@ -34,12 +34,16 @@ export const sendMessage = async (req, res) => {
         .status(400)
         .json({ success: false, error: "User ID is required" });
     }
-    const message = await messageModel.create({
+    const Message = await messageModel.create({
       sender: from,
       receiver: to,
       content,
     });
-    res.status(201).json(message);
+    res.status(201).json({
+        success:true,
+        message:"message send successfully",
+        Message
+    });
   } catch (err) {
     console.log(err);
     res.status(500).json({ error: "Message sending failed" });
