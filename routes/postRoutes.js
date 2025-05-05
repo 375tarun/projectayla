@@ -1,13 +1,14 @@
 import express from 'express';
-import { commentOnPost, createPost, deletePost, likeUnlikePost, getAllPost, editPost, getCommentsByPost } from '../controllers/postController.js'
+import { commentOnPost, createPost,getUserPost, deletePost, likeUnlikePost, getAllPost, editPost, getCommentsByPost } from '../controllers/postController.js'
 import { authCheck } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
 
 router.get("/", authCheck,getAllPost);
+router.get("/userpost", authCheck,getUserPost);
 router.post("/create", authCheck, createPost);
-router.get("/like/:id",authCheck, likeUnlikePost);
+router.post("/like/:id",authCheck, likeUnlikePost);
 router.post("/comment/:id", authCheck, commentOnPost);
 router.get("/post-comments/:id", authCheck, getCommentsByPost);
 
