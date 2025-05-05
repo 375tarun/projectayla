@@ -34,7 +34,7 @@ export const getUserProfile = async (req, res) => {
 export const followUnfollowUser = async (req, res) => {
   try {
     const { _id: userId } = req.user; 
-    const { targetId } = req.body; 
+    const { targetId } = req.params; 
 
     if (!mongoose.isValidObjectId(userId) || !mongoose.isValidObjectId(targetId)) {
       return res.status(400).json({ error: "Invalid user ID or target ID" });
