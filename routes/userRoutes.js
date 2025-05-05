@@ -6,7 +6,7 @@ const router = express.Router();
 
 router.get("/profile",authCheck,getUserProfile)
 router.post("/followUnfollow",authCheck,followUnfollowUser)
-router.post("/update",authCheck,updateUser)
+router.put("/update",authCheck,updateUser)
 router.get("/followers",authCheck,getUserFollowers)
 router.get("/following",authCheck,getUserFollowing)
 

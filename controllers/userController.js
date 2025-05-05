@@ -11,7 +11,7 @@ export const getUserProfile = async (req, res) => {
       return res.status(400).json({ success: false, error: "Invalid user ID" });
     }
 
-    const user = await userModel.findById(userId).select("-password -__v");
+    const user = await userModel.findById(userId).select("-password -refreshToken -__v");
 
     if (!user) {
       return res.status(404).json({ success: false, error: "User not found" });
