@@ -1,4 +1,5 @@
 import userModel from "../models/userModel.js";
+import hashtagsModel from "../models/hashtagsModel.js";
 import { Post } from "../models/postModel.js";
 import { v2 as cloudinary } from "cloudinary";
 import mongoose from "mongoose";
@@ -112,12 +113,17 @@ export const createPost = async (req, res) => {
   try {
     const { _id: userId } = req.user;
     const { text } = req.body;
+    const {hashtags}= req.body;
     let { img } = req.body;
 
     if (!userId) {
       return res
         .status(400)
         .json({ success: false, error: "User ID is required" });
+    }
+    const existingHashtags = await hashtagsModel.find({ _id: { $in: hashtags } });
+    if (existingHashtags.length !== hashtags.length) {
+      return res.status(400).json({ error: 'One or more hashtags are invalid.' });
     }
 
     const user = await userModel.findById(userId);
@@ -141,6 +147,7 @@ export const createPost = async (req, res) => {
       user: userId,
       text,
       img,
+      hashtags
     });
 
     await newPost.save();
@@ -449,3 +456,28 @@ export const editPost = async (req, res) => {
       .json({ success: false, error: "Internal server error" });
   }
 };
+
+export const getUserPost = async (req,res)=>{
+  try {
+    const {_id:userid}=req.user;
+     
+    const existuser = await userModel.findById(userid);
+    if(!existuser){
+      return res.status(404).json({
+        status:"error",
+        message:"user not exist"
+      })
+    };
+    const userpost = await Post.find({user:userid});
+     return res.status(200).json({
+      status:"success",
+      message:'user posts fetched success',
+      userpost
+
+     })
+    
+  } catch (error) {
+    console.log("error in user Post controller:", error);
+    res.status(500).json({ error: "internal server error" });
+  }
+}

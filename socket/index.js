@@ -7,21 +7,25 @@ function generateRoomId(userA, userB) {
 
 export const socketHandler = (io) => {
   io.use((socket, next) => {
-    const token = socket.handshake.auth.token;
-    if (!token) return next(new Error('No token provided'));
-
-    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+    const authHeader = socket.handshake.headers['authorization'];
+    if (!authHeader) return next(new Error('No token provided'));
+    
+    const token = authHeader.split(' ')[1]; // Assuming 'Bearer <token>'
+    jwt.verify(token, process.env.JWT_SECRET_ACCESS_TOKEN, (err, user) => {
       if (err) return next(new Error('Invalid token'));
       socket.user = user;
+      console.log(user)
       next();
     });
   });
+  
 
   io.on('connection', (socket) => {
-    const userId = socket.user.id;
+    const userId = socket.user._id;
 
     socket.on('join_chat', ({ otherUserId }) => {
       const roomId = generateRoomId(userId, otherUserId);
+      console.log("joined room", roomId)
       socket.join(roomId);
     });
 

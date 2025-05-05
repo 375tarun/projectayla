@@ -53,6 +53,6 @@ app.use('/api/messages', messageRoutes);
 socketHandler(io);
 
 const PORT = process.env.PORT;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`server is running ${PORT}`);
 });

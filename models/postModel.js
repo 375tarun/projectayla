@@ -1,28 +1,33 @@
 import mongoose from "mongoose";
 
-const postSchema = new mongoose.Schema({
+const postSchema = new mongoose.Schema(
+  {
     user: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
     },
     text: {
-        type: String,
+      type: String,
     },
     img: {
-        type: String
+      type: String,
     },
     likes: [
-        {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'User'
-        }
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
     ],
-},
-    {
-        timestamps: true
-    })
-
+    hashtags:[
+      {  type : String,
+         
+      }
+    ]
+  },
+  {
+    timestamps: true,
+  }
+);
 
 export const Post = mongoose.model("Post", postSchema);
-
