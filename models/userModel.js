@@ -63,7 +63,14 @@ const userSchema = new mongoose.Schema(
         type: mongoose.Schema.Types.ObjectId,
         ref: "User", // Changed from "user" to "User"
         default: [],
-      },]
+      },],
+    access: {
+      type: [String],
+      enum: ["Post", "Chat", "Room"],
+      default: ["Post", "Chat", "Room"],
+      required: true,
+    }
+
   },
   { timestamps: true }
 );

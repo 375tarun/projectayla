@@ -61,6 +61,23 @@ export const getAllPost = async (req, res) => {
       },
       { $unwind: "$users" },
       {
+        $lookup:{
+          from: "hashtags",
+          localField: "hashtags",
+          foreignField: "_id",
+          as: "hashtags",
+          pipeline: [
+            {
+              $project: {
+                _id: 0,
+                hashTagId: "$_id",
+                name:1
+              }
+            }
+          ]
+        }
+      },
+      {
         $addFields: {
           noOfLikes: { $size: "$likes" },
           isLiked: { $in: [userId, "$likes"] },
@@ -79,6 +96,7 @@ export const getAllPost = async (req, res) => {
           isLiked: 1,
           text: 1,
           createdAt: 1,
+          hashtags: 1
         },
       }
     );
@@ -113,15 +131,16 @@ export const createPost = async (req, res) => {
   try {
     const { _id: userId } = req.user;
     const { text } = req.body;
-    const {hashtags}= req.body;
+    const {hashtags = []}= req.body;
     let { img } = req.body;
+    console.log(hashtags)
 
     if (!userId) {
       return res
         .status(400)
         .json({ success: false, error: "User ID is required" });
     }
-    const existingHashtags = await hashtagsModel.find({ _id: { $in: hashtags } });
+    const existingHashtags = await hashtagsModel.find({ name: { $in: hashtags } }).select("_id");
     if (existingHashtags.length !== hashtags.length) {
       return res.status(400).json({ error: 'One or more hashtags are invalid.' });
     }
@@ -147,7 +166,7 @@ export const createPost = async (req, res) => {
       user: userId,
       text,
       img,
-      hashtags
+      hashtags:existingHashtags
     });
 
     await newPost.save();

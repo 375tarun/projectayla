@@ -1,10 +1,10 @@
 import adminModel from "../models/adminModel.js";
 import jwt from "jsonwebtoken";
-import bcrypt from "bcrypt";
+import { encryptRefreshToken } from './../utils/encryptionAndOtp.js';
 
 export const signup = async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    const { name, email, password, role } = req.body;
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return res.status(400).json({
@@ -13,7 +13,7 @@ export const signup = async (req, res) => {
       });
     }
 
-    if (!username || !password) {
+    if (!name || !password) {
       return res
         .status(400)
         .json({ success: false, error: "All fields are required" });
@@ -40,9 +40,10 @@ export const signup = async (req, res) => {
     }
 
     const newAdmin = await new adminModel({
-      username,
+      name,
       email,
       password,
+      role,
     }).save();
 
     await newAdmin.save();
@@ -52,8 +53,9 @@ export const signup = async (req, res) => {
       message: "User signed up successfully",
       user: {
         _id: newAdmin._id,
-        username: newAdmin.username,
+        name: newAdmin.name,
         email: newAdmin.email,
+        role: newAdmin.role,
       },
     });
   } catch (error) {
@@ -84,13 +86,6 @@ export const login = async (req, res) => {
       });
     }
 
-    if (!admin.isEmailVerified) {
-      return res.status(403).json({
-        success: false,
-        message: "User not verified.",
-      });
-    }
-
     const match = await admin.matchPassword(password);
     if (!match) {
       return res.status(401).json({
@@ -98,16 +93,28 @@ export const login = async (req, res) => {
         message: "Email or Password is not correct",
       });
     }
+
+    const accessToken = await admin.generateToken();
+    let refreshToken = await admin.generateRefreshToken();
+    console.log(refreshToken);
+
+    admin.refreshToken = refreshToken;
     await admin.save();
+
+    refreshToken = encryptRefreshToken(refreshToken);
 
     res.status(200).json({
       success: true,
       message: "User logged in successfully",
       admin: {
         _id: admin._id,
-        username: admin.username,
+        name: admin.name,
         email: admin.email,
       },
+      token: {
+        accessToken,
+        refreshToken
+      }
     });
   } catch (error) {
     console.error(error);

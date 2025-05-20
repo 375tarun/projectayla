@@ -19,15 +19,14 @@ const postSchema = new mongoose.Schema(
         ref: "User",
       },
     ],
-    hashtags:[
-      {  type : String,
-         
-      }
-    ]
+    hashtags: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Hashtag'
+    }]
   },
   {
     timestamps: true,
   }
 );
-
+postSchema.index({ hashtags: 1 });
 export const Post = mongoose.model("Post", postSchema);

@@ -1,5 +1,6 @@
 import { decryptRefreshToken } from "../utils/encryptionAndOtp.js";
 import jwt from "jsonwebtoken"
+import userModel from "../models/userModel.js";
 
 export const authMiddleware = async (req, res, next) => {
     try {
@@ -55,3 +56,43 @@ export const authMiddleware = async (req, res, next) => {
         .json({ success: false, message: "Invalid or expired access token" });
     }
   };
+
+export const checkAccess = async (req, res, next) => {
+  const userId = req.user?._id;
+
+  const route = `${req.baseUrl}${req.path}`;
+  console.log(`Route hit: ${req.method} ${route}`); // logs: POST /api/chat/send
+
+  if (!userId) {
+    return res
+      .status(403)
+      .json({ success: false, message: "User ID not found. Access denied." });
+  }
+
+  const user = await userModel.findById(userId);
+
+  if (!user) {
+    return res
+      .status(403)
+      .json({ success: false, message: "User not found. Access denied." });
+  }
+
+  const requiredAccess = determineAccessFromRoute(route);
+
+  if (!user.access.includes(requiredAccess)) {
+    return res
+      .status(403)
+      .json({ success: false, message: `Access to '${requiredAccess}' denied.` });
+  }
+
+  next();
+};
+
+const determineAccessFromRoute = (route) => {
+  if (route.startsWith("/api/messages")) return "Chat";
+  if (route.startsWith("/api/post")) return "Post";
+  if (route.startsWith("/api/room")) return "Room";
+  return "";
+};
+
+
