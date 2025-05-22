@@ -502,3 +502,128 @@ export const getUserPost = async (req,res)=>{
     res.status(500).json({ error: "internal server error" });
   }
 }
+
+
+
+export const getHashtagWithPosts = async (req, res) => {
+  const { hashtagId } = req.params;
+  const { page = 1, limit = 10 } = req.query;
+  const { _id: userId } = req.user;
+
+  try {
+    // Check if hashtag exists
+    const hashtag = await hashtagsModel.findById(hashtagId).lean();
+    if (!hashtag) {
+      return res.status(404).json({ success: false, message: "Hashtag not found" });
+    }
+
+    const skip = (page - 1) * limit;
+
+    const pipeline = [
+      {
+        $match: {
+          hashtags: new mongoose.Types.ObjectId(hashtagId),
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "user",
+          foreignField: "_id",
+          as: "users",
+          pipeline: [
+            {
+              $project: {
+                _id: 1,
+                username: 1,
+                profileImg: 1,
+                gender: 1,
+              },
+            },
+          ],
+        },
+      },
+      { $unwind: "$users" },
+      {
+        $lookup: {
+          from: "hashtags",
+          localField: "hashtags",
+          foreignField: "_id",
+          as: "hashtags",
+          pipeline: [
+            {
+              $project: {
+                _id: 0,
+                hashTagId: "$_id",
+                name: 1,
+              },
+            },
+          ],
+        },
+      },
+      {
+        $addFields: {
+          noOfLikes: { $size: "$likes" },
+          isLiked: { $in: [new mongoose.Types.ObjectId(userId), "$likes"] },
+          isMyPost: { $eq: ["$user", new mongoose.Types.ObjectId(userId)] },
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          isMyPost: 1,
+          noOfLikes: 1,
+          img: 1,
+          username: "$users.username",
+          profileImg: "$users.profileImg",
+          gender: "$users.gender",
+          isLiked: 1,
+          text: 1,
+          createdAt: 1,
+          hashtags: 1,
+        },
+      },
+      { $sort: { createdAt: -1 } },
+      { $skip: skip },
+      { $limit: parseInt(limit) },
+    ];
+
+    const posts = await Post.aggregate(pipeline);
+
+    const totalPosts = await Post.countDocuments({ hashtags: hashtagId });
+
+    return res.status(200).json({
+      success: true,
+      hashtag,
+      posts,
+      pagination: {
+        total: totalPosts,
+        page: Number(page),
+        limit: Number(limit),
+        totalPages: Math.ceil(totalPosts / limit),
+      },
+    });
+  } catch (error) {
+    console.error("Error in getHashtagWithPosts:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+
+export const getPopularHashtags = async (req, res) => {
+  try {
+    const hashtags = await hashtagsModel.find({ status: "active" })
+      .sort({ postCount: -1 }) // Most used first
+      .limit(4)
+      .select("name hashtagImage postCount"); // Select only necessary fields
+
+    return res.status(200).json({
+      success: true,
+      message: "Popular hashtags fetched successfully",
+      hashtags,
+    });
+  } catch (error) {
+    console.error("Error in getPopularHashtags:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};

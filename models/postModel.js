@@ -32,5 +32,18 @@ const postSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+
+postSchema.post('save', async function (doc, next) {
+  if (doc.hashtags && doc.hashtags.length > 0) {
+    await mongoose.model("Hashtag").updateMany(
+      { _id: { $in: doc.hashtags } },
+      { $inc: { postCount: 1 } }
+    );
+  }
+  next();
+});
+
+
 postSchema.index({ hashtags: 1 });
 export const Post = mongoose.model("Post", postSchema);

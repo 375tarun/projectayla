@@ -18,6 +18,14 @@ const hashtagSchema = new mongoose.Schema({
     enum: ['active', 'inactive'],
     default: 'active'
   },
+  hashtagImage: {
+    type: String,
+    default: ""
+  },
+  postCount: {
+    type: Number,
+    default: 0
+  },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Admin',
