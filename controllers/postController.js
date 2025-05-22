@@ -135,7 +135,6 @@ export const createPost = async (req, res) => {
     if (!userId) {
       return res.status(400).json({ success: false, error: "User ID is required" });
     }
-
     const existingHashtags = await hashtagsModel.find({ name: { $in: hashtags } }).select("_id");
     if (existingHashtags.length !== hashtags.length) {
       return res.status(400).json({ error: "One or more hashtags are invalid." });
