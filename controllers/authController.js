@@ -7,7 +7,7 @@ import bcrypt from 'bcrypt';
 
 export const signup = async (req, res) => {
   try {
-    const { username, email, password, gender, country, bio } = req.body;
+    const { username, email, password, gender, country, bio ,profileImg,dob} = req.body;
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return res.status(400).json({
@@ -21,7 +21,8 @@ export const signup = async (req, res) => {
       !gender ||
       !password ||
       !country ||
-      !bio
+      !bio ||
+      !dob
     ) {
       return res.status(400).json({ success: false, error: "All fields are required" });
     }
@@ -50,6 +51,8 @@ export const signup = async (req, res) => {
       gender,
       country,
       bio,
+      profileImg,
+      dob,
       isEmailVerified: true
     }).save();
 
@@ -71,7 +74,9 @@ export const signup = async (req, res) => {
         gender: newUser.gender,
         country: newUser.country,
         bio: newUser.bio,
-        isEmailVerified: newUser.isEmailVerified
+        profileImg: newUser.profileImg,
+        isEmailVerified: newUser.isEmailVerified,
+        dob: newUser.dob
       },
       token: {
         accessToken,

@@ -19,7 +19,8 @@ const userSchema = new mongoose.Schema(
     },
     profileImg: {
       type: String,
-      default: "",
+      default:
+        "https://res.cloudinary.com/dd0w16u7y/image/upload/v1747901121/Default_pfp_cdnt3u.jpg",
       required: false,
     },
     gender: {
@@ -27,6 +28,11 @@ const userSchema = new mongoose.Schema(
       required: true,
       enum: ["Male", "Female", "Other"],
     },
+    dob: {
+      type: Date,
+      required: true,
+    },
+
     country: {
       type: String,
       required: true,
@@ -63,7 +69,14 @@ const userSchema = new mongoose.Schema(
         type: mongoose.Schema.Types.ObjectId,
         ref: "User", // Changed from "user" to "User"
         default: [],
-      },]
+      },
+    ],
+    access: {
+      type: [String],
+      enum: ["Post", "Chat", "Room"],
+      default: ["Post", "Chat", "Room"],
+      required: true,
+    },
   },
   { timestamps: true }
 );

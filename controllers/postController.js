@@ -61,6 +61,23 @@ export const getAllPost = async (req, res) => {
       },
       { $unwind: "$users" },
       {
+        $lookup:{
+          from: "hashtags",
+          localField: "hashtags",
+          foreignField: "_id",
+          as: "hashtags",
+          pipeline: [
+            {
+              $project: {
+                _id: 0,
+                hashTagId: "$_id",
+                name:1
+              }
+            }
+          ]
+        }
+      },
+      {
         $addFields: {
           noOfLikes: { $size: "$likes" },
           isLiked: { $in: [userId, "$likes"] },
@@ -79,6 +96,7 @@ export const getAllPost = async (req, res) => {
           isLiked: 1,
           text: 1,
           createdAt: 1,
+          hashtags: 1
         },
       }
     );
@@ -112,53 +130,57 @@ export const getAllPost = async (req, res) => {
 export const createPost = async (req, res) => {
   try {
     const { _id: userId } = req.user;
-    const { text } = req.body;
-    const {hashtags}= req.body;
-    let { img } = req.body;
+    const { text, hashtags = [], img = [] } = req.body; // img as array
 
     if (!userId) {
-      return res
-        .status(400)
-        .json({ success: false, error: "User ID is required" });
+      return res.status(400).json({ success: false, error: "User ID is required" });
     }
-    const existingHashtags = await hashtagsModel.find({ _id: { $in: hashtags } });
+
+    const existingHashtags = await hashtagsModel.find({ name: { $in: hashtags } }).select("_id");
     if (existingHashtags.length !== hashtags.length) {
-      return res.status(400).json({ error: 'One or more hashtags are invalid.' });
+      return res.status(400).json({ error: "One or more hashtags are invalid." });
     }
 
     const user = await userModel.findById(userId);
-    if (!user)
-      return res
-        .status(404)
-        .json({ success: false, message: "User not found" });
-
-    if (!text && !img) {
-      return res
-        .status(400)
-        .json({ success: false, error: "Post must have text or an image" });
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    if (img) {
-      const uploadedResponse = await cloudinary.uploader.upload(img);
-      img = uploadedResponse.secure_url;
+    // Check for at least one content type
+    if (!text && (!img || img.length === 0)) {
+      return res.status(400).json({ success: false, error: "Post must have text or at least one image" });
+    }
+
+    let uploadedImages = [];
+
+    // Upload images if provided
+    if (img.length > 0) {
+      if (!Array.isArray(img)) {
+        return res.status(400).json({ success: false, error: "Images must be an array" });
+      }
+
+      for (let i = 0; i < img.length; i++) {
+        const uploadedResponse = await cloudinary.uploader.upload(img[i]);
+        uploadedImages.push(uploadedResponse.secure_url);
+      }
     }
 
     const newPost = new Post({
       user: userId,
       text,
-      img,
-      hashtags
+      img: uploadedImages, // array of URLs
+      hashtags: existingHashtags,
     });
 
     await newPost.save();
-    res
-      .status(201)
-      .json({ success: true, message: "Post Created Successfully" });
+
+    res.status(201).json({ success: true, message: "Post Created Successfully" });
   } catch (error) {
     console.error("Error in createPost controller:", error);
     res.status(500).json({ success: false, error: "Internal server error" });
   }
 };
+
 
 export const likeUnlikePost = async (req, res) => {
   try {

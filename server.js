@@ -6,11 +6,16 @@ import { Server } from "socket.io";
 import { socketHandler } from './socket/index.js';
 import connectDb from "./config/dbConfig.js";
 import authRoutes from "./routes/authRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
 import postRoutes from "./routes/postRoutes.js";
+import hashtagRoutes from "./routes/hashtagRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
+import adminUsersRoutes from "./routes/adminUsersRoutes.js";
+import adminHashTagsRoutes from "./routes/adminHashtagRoutes.js";
 import { v2 as cloudinary } from "cloudinary";
 import messageRoutes from './routes/messageRoutes.js';
 import http from "http";
+
 
 //configurations
 dotenv.config();
@@ -45,9 +50,14 @@ app.use(morgan("dev"));
 
 //routes
 app.use("/api/auth", authRoutes);
+app.use("/api/adminAuth", adminRoutes);
 app.use("/api/post", postRoutes);
+app.use("/api/hashtags", hashtagRoutes);
+app.use("/api/adminHashTagsRoutes", adminHashTagsRoutes);
 app.use("/api/user", userRoutes);
+app.use("/api/adminUsers", adminUsersRoutes);
 app.use('/api/messages', messageRoutes);
+
 
 
 socketHandler(io);

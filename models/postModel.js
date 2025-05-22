@@ -10,24 +10,27 @@ const postSchema = new mongoose.Schema(
     text: {
       type: String,
     },
-    img: {
-      type: String,
-    },
+    img: [
+      {
+        type: String,
+      },
+    ],
     likes: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
       },
     ],
-    hashtags:[
-      {  type : String,
-         
-      }
-    ]
+    hashtags: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Hashtag",
+      },
+    ],
   },
   {
     timestamps: true,
   }
 );
-
+postSchema.index({ hashtags: 1 });
 export const Post = mongoose.model("Post", postSchema);
