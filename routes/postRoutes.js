@@ -9,7 +9,7 @@ import {
   editPost,
   getCommentsByPost,
   getHashtagWithPosts,
-  getPopularHashtags,
+  getPopularHashtags,getAllHashtags
 } from "../controllers/postController.js";
 import { authCheck } from "../middlewares/auth.middleware.js";
 import { checkAccess } from "./../middlewares/auth.middleware.js";
@@ -34,5 +34,6 @@ router.get(
   getHashtagWithPosts
 );
 router.get("/getPopularHashtags", authCheck, checkAccess, getPopularHashtags);
+router.get("/getAllHashtags", authCheck, checkAccess, getAllHashtags);
 
 export default router;

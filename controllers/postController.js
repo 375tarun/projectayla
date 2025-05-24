@@ -627,3 +627,21 @@ export const getPopularHashtags = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
+
+export const getAllHashtags = async (req, res) => {
+  try {
+    const hashtags = await hashtagsModel.find({ status: "active" })
+      .sort({ postCount: -1 }) // Most popular first
+      .select("name hashtagImage postCount"); // Select only needed fields
+
+    return res.status(200).json({
+      success: true,
+      message: "All hashtags fetched ",
+      hashtags,
+    });
+  } catch (error) {
+    console.error("Error in getAllHashtags:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
