@@ -1,10 +1,12 @@
 // messageController.js
 import jwt from 'jsonwebtoken';
 import messageModel from '../models/messageModel.js';
-import { v2 as cloudinary } from 'cloudinary';
+import pkg from 'cloudinary';
+
 import multer from 'multer';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 
+const { v2: cloudinary } = pkg;
 // Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
