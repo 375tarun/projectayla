@@ -1,5 +1,7 @@
 import bcrypt from "bcrypt";
-import { v2 as cloudinary } from "cloudinary";
+import pkg from 'cloudinary';
+const { v2: cloudinary } = pkg;
+
 import userModel from "../models/userModel.js";
 import mongoose from "mongoose";
 

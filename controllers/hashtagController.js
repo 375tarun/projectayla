@@ -2,7 +2,9 @@
 import Hashtag from "../models/hashtagsModel.js";
 import { Post } from "../models/postModel.js";
 import mongoose from "mongoose";
-import cloudinary from "cloudinary";
+import pkg from 'cloudinary';
+const { v2: cloudinary } = pkg;
+
 
 export const createHashtag = async (req, res) => {
   try {
