@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import morgan from "morgan";
 import { Server } from "socket.io";
-import { socketHandler } from './socket/index.js';
+import { socketHandler } from './controllers/messageController.js';
 import connectDb from "./config/dbConfig.js";
 import authRoutes from "./routes/authRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
@@ -42,6 +42,8 @@ app.use(
     credentials: true, // Allow cookies from the frontend
   })
 );
+
+app.use(express.urlencoded({ extended: true }));
 
 //essentials middlewares
 app.use(express.json());
