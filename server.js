@@ -11,9 +11,11 @@ import postRoutes from "./routes/postRoutes.js";
 import hashtagRoutes from "./routes/hashtagRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import adminUsersRoutes from "./routes/adminUsersRoutes.js";
-import { v2 as cloudinary } from "cloudinary";
+// import { v2 as cloudinary } from "cloudinary";
 import messageRoutes from './routes/messageRoutes.js';
 import http from "http";
+import pkg from 'cloudinary';
+const { v2: cloudinary } = pkg;
 
 
 //configurations
