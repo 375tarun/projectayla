@@ -11,11 +11,11 @@ import { authCheck } from "../middlewares/adminAuth.middleware.js";
 
 const router = express.Router();
 
-router.get("/users", authCheck, getAllUsers);
-router.get("/users/:userId", authCheck, getUserDetailsById);
-router.get("/users/:userId/followers", authCheck, getUserFollowersAdmin);
-router.get("/users/:userId/following", authCheck, getUserFollowingAdmin);
-router.put("/users/:userId", authCheck, updateUser);
-router.delete("/users/:userId", authCheck, deleteUser);
+router.get("/users", getAllUsers);
+router.get("/users/:userId", getUserDetailsById);
+router.get("/users/:userId/followers", getUserFollowersAdmin);
+router.get("/users/:userId/following", getUserFollowingAdmin);
+router.put("/users/:userId", updateUser);
+router.delete("/users/:userId", deleteUser);
 
 export default router;

@@ -1,6 +1,6 @@
 import userModel from "../models/userModel.js";
 import hashtagsModel from "../models/hashtagsModel.js";
-import { Post } from "../models/postModel.js";
+import  Post  from "../models/postModel.js";
 import pkg from 'cloudinary';
 const { v2: cloudinary } = pkg;
 

@@ -5,10 +5,13 @@ import {
   sendImageMessage,
   sendVoiceMessage,
   getChatMessages,
-  deleteMessage,
+  deleteMessage,sendAssetMessage,
   verifyToken,
-  upload
+  upload,
+  getConversationRecipients
+
 } from '../controllers/messageController.js';
+import { authCheck } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
@@ -16,18 +19,22 @@ const router = express.Router();
 router.use(verifyToken);
 
 // Text message route
-router.post('/send/text', sendTextMessage);
+router.post('/send/text', authCheck,sendTextMessage);
 
 // Image message route
-router.post('/send/image', upload.single('image'), sendImageMessage);
+router.post('/send/image', authCheck, upload.single('image'), sendImageMessage);
 
 // Voice message route
-router.post('/send/voice', upload.single('voice'), sendVoiceMessage);
+router.post('/send/voice', authCheck, upload.single('voice'), sendVoiceMessage);
 
 // Get chat messages between two users
-router.get('/chat/:otherUserId', getChatMessages);
+router.get('/chat/:otherUserId', authCheck, getChatMessages);
 
 // Delete message
-router.delete('/:messageId', deleteMessage);
+router.delete('/:messageId', authCheck, deleteMessage);
+
+router.post('/send-asset', authCheck, sendAssetMessage);
+
+router.get('/user/conversations', authCheck, getConversationRecipients);
 
 export default router;

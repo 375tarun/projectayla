@@ -1,10 +1,13 @@
 // messageController.js
 import jwt from 'jsonwebtoken';
 import messageModel from '../models/messageModel.js';
+import assetModel from '../models/assetModel.js';
 import pkg from 'cloudinary';
+import mongoose from 'mongoose';
 
 import multer from 'multer';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
+import userModel from '../models/userModel.js';
 
 const { v2: cloudinary } = pkg;
 // Configure Cloudinary
@@ -27,7 +30,7 @@ const storage = new CloudinaryStorage({
 export const upload = multer({ 
   storage: storage,
   limits: {
-    fileSize: 5000 * 1024 , // 500KB limit
+    fileSize: 50000 * 1024 , // 500KB limit
   }
 });
 
@@ -52,6 +55,7 @@ export const verifyToken = (req, res, next) => {
 export const sendTextMessage = async (req, res) => {
   try {
     const { receiverId, content } = req.body;
+    console.log('Received text message:', req.body);
     const senderId = req.user._id;
 
     if (!receiverId || !content) {
@@ -162,6 +166,104 @@ export const sendVoiceMessage = async (req, res) => {
   }
 };
 
+export const sendAssetMessage = async (req, res) => {
+  try {
+    const senderId = req.user._id;
+    const { receiverId, assetId } = req.body;
+    console.log(receiverId)
+
+    // Validation
+    if (!receiverId) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Receiver ID is required' 
+      });
+    }
+
+    if (!assetId) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Asset ID is required' 
+      });
+    }
+
+    // Verify asset exists and is accessible
+    const asset = await assetModel.findById(assetId);
+    if (!asset) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Asset not found' 
+      });
+    }
+
+    // Check if asset is public or user has access to it
+    if (!asset.isPublic && asset.uploadedBy?.toString() !== senderId.toString()) {
+      return res.status(403).json({ 
+        success: false,
+        error: 'You do not have access to this asset' 
+      });
+    }
+
+    // Create message with asset
+    const message = await messageModel.create({
+      sender: senderId,
+      receiver: receiverId,
+      content: asset.name, // Asset name as content
+      messageType: 'asset',
+      mediaUrl: asset.assetUrl,
+      mediaPublicId: asset._id, // Using asset ID as reference
+      assetDetails: {
+        assetId: asset._id,
+        assetType: asset.assetType,
+        assetName: asset.name,
+        dimensions: asset.dimensions,
+        format: asset.format,
+        tags: asset.tags
+      }
+    });
+
+    // Populate the message for response
+    await message.populate([
+      { path: 'sender', select: 'username email avatar' },
+      { path: 'receiver', select: 'username email avatar' }
+    ]);
+
+    // Emit to socket if available
+    if (req.io) {
+      const roomId = generateRoomId(senderId, receiverId);
+      req.io.to(roomId).emit('receive_message', {
+        ...message.toObject(),
+        messageType: 'asset',
+        assetDetails: message.assetDetails
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      message: `${asset.assetType} sent successfully`,
+      data: {
+        message: {
+          _id: message._id,
+          sender: message.sender,
+          receiver: message.receiver,
+          content: message.content,
+          messageType: message.messageType,
+          mediaUrl: message.mediaUrl,
+          assetDetails: message.assetDetails,
+          createdAt: message.createdAt,
+          updatedAt: message.updatedAt
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error sending asset message:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to send asset message' 
+    });
+  }
+};
+
 // Get chat messages between two users
 export const getChatMessages = async (req, res) => {
   try {
@@ -231,6 +333,121 @@ export const deleteMessage = async (req, res) => {
   }
 };
 
+
+export const markMessageAsRead = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const userId = req.user._id;
+
+    const message = await messageModel.findById(messageId);
+    if (!message) {
+      return res.status(404).json({ error: 'Message not found' });
+    }
+
+    if (message.receiver.toString() !== userId) {
+      return res.status(403).json({ error: 'Not authorized to mark this message as read' });
+    }
+
+    await messageModel.findByIdAndUpdate(messageId, { isRead: true, readAt: new Date() });
+
+    res.status(200).json({
+      success: true,
+      message: 'Message marked as read successfully'
+    });
+  } catch (error) {
+    console.error('Error marking message as read:', error);
+    res.status(500).json({ error: 'Failed to mark message as read' });
+  }
+};
+
+export const getUnreadMessagesCount = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const unreadCount = await messageModel.countDocuments({
+      receiver: userId,
+      isRead: false
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        unreadCount
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching unread messages count:', error);
+    res.status(500).json({ error: 'Failed to fetch unread messages count' });
+  }
+};
+
+
+
+
+// Get distinct/unique receivers that current user has sent messages to
+export const getConversationRecipients = async (req, res) => {
+  try {
+    const senderId = req.user._id; // Current user ID from auth middleware
+
+    console.log('Fetching distinct receivers for sender:', senderId);
+
+    const receivers = await messageModel.aggregate([
+      {
+        $match: {
+          sender: new mongoose.Types.ObjectId(senderId),
+          isDeleted: false
+        }
+      },
+      {
+        $group: {
+          _id: '$receiver',
+          lastMessageDate: { $max: '$createdAt' },
+          messageCount: { $sum: 1 }
+        }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'recipientInfo'
+        }
+      },
+      {
+        $unwind: '$recipientInfo'
+      },
+      {
+        $project: {
+          _id: '$recipientInfo._id',
+          username: '$recipientInfo.username',
+          profileImg: '$recipientInfo.profileImg',
+          lastMessageDate: 1,
+          messageCount: 1,
+
+        }
+      },
+      {
+        $sort: { lastMessageDate: -1 }
+      }
+    ]);
+    res.status(200).json({
+      success: true,
+      count: receivers.length,
+      data: receivers
+    });
+
+  } catch (error) {
+    console.error('Error fetching distinct receivers:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch distinct receivers',
+      error: error.message
+    });
+  }
+};
+
+
+
 // Utility function to generate room ID
 function generateRoomId(userA, userB) {
   return [userA, userB].sort().join('_');
@@ -276,6 +493,7 @@ export const socketHandler = (io) => {
           .findById(message._id)
           .populate('sender', 'name email avatar')
           .populate('receiver', 'name email avatar');
+          
 
         const roomId = generateRoomId(userId, to);
         io.to(roomId).emit('receive_message', populatedMessage);
@@ -313,3 +531,5 @@ export const socketHandler = (io) => {
     });
   });
 };
+
+

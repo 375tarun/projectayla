@@ -52,7 +52,7 @@ export const signup = async (req, res) => {
       country,
       bio,
       profileImg,
-      dob,
+      dob:new Date(dob),
       isEmailVerified: true
     }).save();
 

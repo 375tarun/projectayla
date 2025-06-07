@@ -46,4 +46,4 @@ postSchema.post('save', async function (doc, next) {
 
 
 postSchema.index({ hashtags: 1 });
-export const Post = mongoose.model("Post", postSchema);
+export default mongoose.model("Post", postSchema);

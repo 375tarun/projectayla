@@ -20,7 +20,8 @@ const hashtagSchema = new mongoose.Schema({
   },
   hashtagImage: {
     type: String,
-    default: ""
+    default: "",
+    required: false
   },
   postCount: {
     type: Number,
@@ -29,7 +30,7 @@ const hashtagSchema = new mongoose.Schema({
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Admin',
-    required: true
+    required: false
   }
 }, {
   timestamps: true

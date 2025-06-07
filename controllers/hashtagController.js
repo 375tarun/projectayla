@@ -1,10 +1,8 @@
-// controllers/hashtagController.js
 import Hashtag from "../models/hashtagsModel.js";
-import { Post } from "../models/postModel.js";
+import Post from "../models/postModel.js"; // This import doesn't seem to be used in the provided functions, consider removing if not needed elsewhere
 import mongoose from "mongoose";
 import pkg from 'cloudinary';
 const { v2: cloudinary } = pkg;
-
 
 export const createHashtag = async (req, res) => {
   try {
@@ -30,7 +28,7 @@ export const createHashtag = async (req, res) => {
       name: formattedName,
       description,
       status: status || "active",
-      createdBy: req.user._id,
+      // createdBy: req.user._id,
       hashtagImage: uploadedImageUrl,
     });
 
@@ -52,11 +50,24 @@ export const createHashtag = async (req, res) => {
 // Get all hashtags with pagination
 export const getAllHashtags = async (req, res) => {
   try {
-    const hashtags = await Hashtag.find().sort({ createdAt: -1 }).lean();
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const totalHashtags = await Hashtag.countDocuments();
+    const hashtags = await Hashtag.find()
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
 
     return res.status(200).json({
       success: true,
       count: hashtags.length,
+      page,
+      limit,
+      totalPages: Math.ceil(totalHashtags / limit),
+      totalHashtags,
       data: hashtags,
     });
   } catch (error) {
@@ -99,4 +110,55 @@ export const getHashtagById = async (req, res) => {
   }
 };
 
+// Delete hashtag by ID
+export const deleteHashtag = async (req, res) => {
+  try {
+    const { id } = req.params;
 
+    // Validate if the ID is a valid MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid hashtag ID",
+      });
+    }
+
+    // Find the hashtag to get image details before deletion
+    const hashtag = await Hashtag.findById(id);
+    
+    if (!hashtag) {
+      return res.status(404).json({
+        success: false,
+        message: "Hashtag not found",
+      });
+    }
+
+    // If hashtag has an image, delete it from Cloudinary
+    if (hashtag.hashtagImage) {
+      try {
+        // Extract public_id from Cloudinary URL
+        const publicId = hashtag.hashtagImage.split('/').pop().split('.')[0];
+        await cloudinary.uploader.destroy(publicId);
+      } catch (cloudinaryError) {
+        console.error("Error deleting image from Cloudinary:", cloudinaryError);
+        // Continue with hashtag deletion even if image deletion fails
+      }
+    }
+
+    // Delete the hashtag
+    await Hashtag.findByIdAndDelete(id);
+
+    return res.status(200).json({
+      success: true,
+      message: "Hashtag deleted successfully",
+      data: { id: hashtag._id, name: hashtag.name },
+    });
+  } catch (error) {
+    console.error("Error deleting hashtag:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete hashtag",
+      error: error.message,
+    });
+  }
+};
