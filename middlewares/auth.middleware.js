@@ -57,36 +57,36 @@ export const authMiddleware = async (req, res, next) => {
     }
   };
 
-export const checkAccess = async (req, res, next) => {
-  const userId = req.user?._id;
+// export const checkAccess = async (req, res, next) => {
+//   const userId = req.user?._id;
 
-  const route = `${req.baseUrl}${req.path}`;
-  console.log(`Route hit: ${req.method} ${route}`); // logs: POST /api/chat/send
+//   const route = `${req.baseUrl}${req.path}`;
+//   console.log(`Route hit: ${req.method} ${route}`); // logs: POST /api/chat/send
 
-  if (!userId) {
-    return res
-      .status(403)
-      .json({ success: false, message: "User ID not found. Access denied." });
-  }
+//   if (!userId) {
+//     return res
+//       .status(403)
+//       .json({ success: false, message: "User ID not found. Access denied." });
+//   }
 
-  const user = await userModel.findById(userId);
+//   const user = await userModel.findById(userId);
 
-  if (!user) {
-    return res
-      .status(403)
-      .json({ success: false, message: "User not found. Access denied." });
-  }
+//   if (!user) {
+//     return res
+//       .status(403)
+//       .json({ success: false, message: "User not found. Access denied." });
+//   }
 
-  const requiredAccess = determineAccessFromRoute(route);
+//   const requiredAccess = determineAccessFromRoute(route);
 
-  if (!user.access.includes(requiredAccess)) {
-    return res
-      .status(403)
-      .json({ success: false, message: `Access to '${requiredAccess}' denied.` });
-  }
+//   if (!user.access.includes(requiredAccess)) {
+//     return res
+//       .status(403)
+//       .json({ success: false, message: `Access to '${requiredAccess}' denied.` });
+//   }
 
-  next();
-};
+//   next();
+// };
 
 const determineAccessFromRoute = (route) => {
   if (route.startsWith("/api/messages")) return "Chat";

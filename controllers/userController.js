@@ -246,3 +246,74 @@ export const getUserFollowing = async (req, res) => {
     return res.status(500).json({ success: false, error: "Internal server error" });
   }
 };
+
+export const searchUser = async (req, res) => {
+  try {
+    const { username } = req.params;
+
+    if (!username || username.trim().length < 2) {
+      return res.status(400).json({
+        success: false,
+        message: "Search term must be at least 2 characters long"
+      });
+    }
+
+    const searchTerm = username.trim();
+
+    // Create search query for both username and aylaId
+    const searchQuery = {
+      $or: [
+        { username: { $regex: `^${searchTerm}$`, $options: "i" } },
+        { aylaId: { $regex: `^${searchTerm}$`, $options: "i" } }
+      ]
+    };
+
+    // Find user by username or aylaId (case-insensitive)
+    const user = await userModel.findOne(searchQuery)
+      .select("username aylaId email profileImg gender country bio isEmailVerified createdAt followers following")
+      .lean();
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    // Add follower/following counts
+    const userWithCounts = {
+      _id: user._id,
+      username: user.username,
+      aylaId: user.aylaId,
+      email: user.email,
+      profileImg: user.profileImg,
+      gender: user.gender,
+      country: user.country,
+      bio: user.bio,
+      isEmailVerified: user.isEmailVerified,
+      createdAt: user.createdAt,
+      followerCount: user.followers?.length || 0,
+      followingCount: user.following?.length || 0
+    };
+
+    // Determine which field matched for better response
+    const matchedBy = user.username.toLowerCase() === searchTerm.toLowerCase() ? 'username' : 'aylaId';
+
+    return res.status(200).json({
+      success: true,
+      message: "User found successfully",
+      matchedBy: matchedBy,
+      data: {
+        user: userWithCounts
+      }
+    });
+
+  } catch (error) {
+    console.error("Error searching user:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message
+    });
+  }
+};

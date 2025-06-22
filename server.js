@@ -6,14 +6,15 @@ import { Server } from "socket.io";
 import { socketHandler } from './controllers/messageController.js';
 import connectDb from "./config/dbConfig.js";
 import authRoutes from "./routes/authRoutes.js";
-import adminRoutes from "./routes/adminRoutes.js";
+import adminRoutes from "./routes/adminAuthRoutes.js";
 import postRoutes from "./routes/postRoutes.js";
 import hashtagRoutes from "./routes/hashtagRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import adminUsersRoutes from "./routes/adminUsersRoutes.js";
 import adminMessageRoutes from "./routes/adminMessageRoutes.js";
 import adminPostRoutes from "./routes/adminPostRoutes.js";
-
+import rewardHistoryRoutes from "./routes/rewardHistoryRoutes.js";
+import userBlockRoutes from './routes/userBlockRoutes.js'
 
 // import { v2 as cloudinary } from "cloudinary";
 import messageRoutes from './routes/messageRoutes.js';
@@ -21,7 +22,7 @@ import assetRoutes from "./routes/assetRoutes.js";
 import http from "http";
 import pkg from 'cloudinary';
 const { v2: cloudinary } = pkg;
-
+import noticeRoutes from "./routes/noticeRoutes.js";
 
 //configurations
 dotenv.config();
@@ -65,7 +66,10 @@ app.use("/api/hashtags", hashtagRoutes);
 app.use("/api/user", userRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/assets', assetRoutes);
+app.use('/api/rewardHistory', rewardHistoryRoutes);
+app.use('/api/block', userBlockRoutes); // User block routes
 
+app.use('/api/notice', noticeRoutes);
 // Admin routes
 app.use("/api/adminAuth", adminRoutes);
 app.use("/api/adminUsers", adminUsersRoutes);

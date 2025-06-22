@@ -616,7 +616,6 @@ export const getPopularHashtags = async (req, res) => {
   try {
     const hashtags = await hashtagsModel.find({ status: "active" })
       .sort({ postCount: -1 }) // Most used first
-      .limit(4)
       .select("name hashtagImage postCount"); // Select only necessary fields
 
     return res.status(200).json({
@@ -635,7 +634,7 @@ export const getAllHashtags = async (req, res) => {
   try {
     const hashtags = await hashtagsModel.find({ status: "active" })
       .sort({ postCount: -1 }) // Most popular first
-      .select("name hashtagImage postCount"); // Select only needed fields
+      .select("name postCount"); // Select only needed fields
 
     return res.status(200).json({
       success: true,

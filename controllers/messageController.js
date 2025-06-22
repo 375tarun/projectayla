@@ -8,6 +8,7 @@ import mongoose from 'mongoose';
 import multer from 'multer';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import userModel from '../models/userModel.js';
+import  isBlocked  from '../utils/isBlocked.js';
 
 const { v2: cloudinary } = pkg;
 // Configure Cloudinary
@@ -22,7 +23,7 @@ const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
     folder: 'chat-media',
-    allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'mp3', 'wav', 'ogg', 'webm', 'mp4'],
+    allowed_formats: ['jpg', 'jpeg', 'heif', 'png', 'gif', 'mp3', 'wav', 'ogg', 'webm', 'mp4'],
     resource_type: 'auto', // Automatically detect file type
   },
 });
@@ -30,7 +31,7 @@ const storage = new CloudinaryStorage({
 export const upload = multer({ 
   storage: storage,
   limits: {
-    fileSize: 50000 * 1024 , // 500KB limit
+    fileSize: 500000 * 1024 , // 500KB limit
   }
 });
 
@@ -55,12 +56,14 @@ export const verifyToken = (req, res, next) => {
 export const sendTextMessage = async (req, res) => {
   try {
     const { receiverId, content } = req.body;
-    console.log('Received text message:', req.body);
     const senderId = req.user._id;
 
     if (!receiverId || !content) {
       return res.status(400).json({ error: 'Receiver ID and content are required' });
     }
+
+     await isBlocked(senderId, receiverId);
+
 
     const message = await messageModel.create({
       sender: senderId,
@@ -82,7 +85,7 @@ export const sendTextMessage = async (req, res) => {
     });
   } catch (error) {
     console.error('Error sending text message:', error);
-    res.status(500).json({ error: 'Failed to send message' });
+    res.status(500).json( error.message ? { error: error.message } : { error: 'Failed to send message' });
   }
 };
 
@@ -100,6 +103,7 @@ export const sendImageMessage = async (req, res) => {
       return res.status(400).json({ error: 'Image file is required' });
     }
 
+     await isBlocked(senderId, receiverId);
     const message = await messageModel.create({
       sender: senderId,
       receiver: receiverId,
@@ -122,7 +126,7 @@ export const sendImageMessage = async (req, res) => {
     });
   } catch (error) {
     console.error('Error sending image:', error);
-    res.status(500).json({ error: 'Failed to send image' });
+    res.status(500).json({ error: error.message ? error.message : 'Failed to send image' });
   }
 };
 
@@ -140,6 +144,7 @@ export const sendVoiceMessage = async (req, res) => {
       return res.status(400).json({ error: 'Voice file is required' });
     }
 
+     await isBlocked(senderId, receiverId);
     const message = await messageModel.create({
       sender: senderId,
       receiver: receiverId,
@@ -162,7 +167,7 @@ export const sendVoiceMessage = async (req, res) => {
     });
   } catch (error) {
     console.error('Error sending voice message:', error);
-    res.status(500).json({ error: 'Failed to send voice message' });
+    res.status(500).json({ error: error.message ? error.message : 'Failed to send voice message' });
   }
 };
 
@@ -187,6 +192,7 @@ export const sendAssetMessage = async (req, res) => {
       });
     }
 
+     await isBlocked(senderId, receiverId);
     // Verify asset exists and is accessible
     const asset = await assetModel.findById(assetId);
     if (!asset) {
@@ -259,7 +265,7 @@ export const sendAssetMessage = async (req, res) => {
     console.error('Error sending asset message:', error);
     res.status(500).json({ 
       success: false,
-      error: 'Failed to send asset message' 
+      error: error.message ? error.message : 'Failed to send asset message'
     });
   }
 };
@@ -273,6 +279,8 @@ export const getChatMessages = async (req, res) => {
     const limit = parseInt(req.query.limit) || 20;
     const skip = (page - 1) * limit;
 
+    
+     await isBlocked(userId, otherUserId);
     const messages = await messageModel
       .find({
         $or: [
@@ -297,7 +305,7 @@ export const getChatMessages = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching messages:', error);
-    res.status(500).json({ error: 'Failed to fetch messages' });
+    res.status(500).json({ error: error.message ? error.message : 'Failed to fetch messages' });
   }
 };
 
@@ -316,6 +324,7 @@ export const deleteMessage = async (req, res) => {
       return res.status(403).json({ error: 'Not authorized to delete this message' });
     }
 
+     await isBlocked(senderId, receiverId);
     // Delete media from Cloudinary if exists
     if (message.mediaPublicId) {
       await cloudinary.uploader.destroy(message.mediaPublicId);
@@ -329,7 +338,7 @@ export const deleteMessage = async (req, res) => {
     });
   } catch (error) {
     console.error('Error deleting message:', error);
-    res.status(500).json({ error: 'Failed to delete message' });
+    res.status(500).json({ error: error.message ? error.message : 'Failed to delete message' });
   }
 };
 
@@ -383,13 +392,65 @@ export const getUnreadMessagesCount = async (req, res) => {
 
 
 
-
-// Get distinct/unique receivers that current user has sent messages to
 export const getConversationRecipients = async (req, res) => {
   try {
-    const senderId = req.user._id; // Current user ID from auth middleware
+    const senderId = req.user._id;
 
-    console.log('Fetching distinct receivers for sender:', senderId);
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const totalCountPipeline = [
+      {
+        $match: {
+          sender: new mongoose.Types.ObjectId(senderId),
+          isDeleted: false
+        }
+      },
+      {
+        $group: {
+          _id: '$receiver'
+        }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'recipientInfo'
+        }
+      },
+      { $unwind: '$recipientInfo' },
+      {
+        $lookup: {
+          from: 'users',
+          let: { currentUserId: new mongoose.Types.ObjectId(senderId) },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$_id', '$$currentUserId'] } } },
+            { $project: { following: 1 } }
+          ],
+          as: 'currentUser'
+        }
+      },
+      { $unwind: '$currentUser' },
+      {
+        $match: {
+          $expr: {
+            $not: {
+              $and: [
+                { $in: ['$recipientInfo._id', '$currentUser.following'] },
+                { $in: [new mongoose.Types.ObjectId(senderId), '$recipientInfo.followers'] }
+              ]
+            }
+          }
+        }
+      },
+      { $count: 'total' }
+    ];
+
+    const [totalResult] = await messageModel.aggregate(totalCountPipeline);
+    const totalRecords = totalResult ? totalResult.total : 0;
+    const totalPages = Math.ceil(totalRecords / limit);
 
     const receivers = await messageModel.aggregate([
       {
@@ -413,8 +474,61 @@ export const getConversationRecipients = async (req, res) => {
           as: 'recipientInfo'
         }
       },
+      { $unwind: '$recipientInfo' },
       {
-        $unwind: '$recipientInfo'
+        $lookup: {
+          from: 'users',
+          let: { currentUserId: new mongoose.Types.ObjectId(senderId) },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$_id', '$$currentUserId'] } } },
+            { $project: { following: 1 } }
+          ],
+          as: 'currentUser'
+        }
+      },
+      { $unwind: '$currentUser' },
+      {
+        $match: {
+          $expr: {
+            $not: {
+              $and: [
+                { $in: ['$recipientInfo._id', '$currentUser.following'] },
+                { $in: [new mongoose.Types.ObjectId(senderId), '$recipientInfo.followers'] }
+              ]
+            }
+          }
+        }
+      },
+      // Fetch last message content
+      {
+        $lookup: {
+          from: 'messages',
+          let: { receiverId: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$sender', new mongoose.Types.ObjectId(senderId)] },
+                    { $eq: ['$receiver', '$$receiverId'] },
+                    { $eq: ['$isDeleted', false] }
+                  ]
+                }
+              }
+            },
+            { $sort: { createdAt: -1 } },
+            { $limit: 1 },
+            {
+              $project: {
+                content: 1,
+                messageType: 1,
+                mediaUrl: 1,
+                createdAt: 1
+              }
+            }
+          ],
+          as: 'lastMessageInfo'
+        }
       },
       {
         $project: {
@@ -423,17 +537,42 @@ export const getConversationRecipients = async (req, res) => {
           profileImg: '$recipientInfo.profileImg',
           lastMessageDate: 1,
           messageCount: 1,
-
+          lastMessage: {
+            $cond: {
+              if: {
+                $eq: [
+                  { $arrayElemAt: ['$lastMessageInfo.messageType', 0] },
+                  'text'
+                ]
+              },
+              then: { $arrayElemAt: ['$lastMessageInfo.content', 0] },
+              else: {
+                $concat: [
+                  '[', { $arrayElemAt: ['$lastMessageInfo.messageType', 0] }, '] ',
+                  { $ifNull: [{ $arrayElemAt: ['$lastMessageInfo.mediaUrl', 0] }, '' ] }
+                ]
+              }
+            }
+          }
         }
       },
-      {
-        $sort: { lastMessageDate: -1 }
-      }
+      { $sort: { lastMessageDate: -1 } },
+      { $skip: skip },
+      { $limit: limit }
     ]);
+
     res.status(200).json({
       success: true,
       count: receivers.length,
-      data: receivers
+      data: receivers,
+      pagination: {
+        currentPage: page,
+        totalPages: totalPages,
+        totalRecords: totalRecords,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+        limit: limit
+      }
     });
 
   } catch (error) {
@@ -446,6 +585,152 @@ export const getConversationRecipients = async (req, res) => {
   }
 };
 
+
+export const getMutualFollowers = async (req, res) => {
+  try {
+    const currentUserId = req.user._id;
+
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const totalCountPipeline = [
+      {
+        $match: { _id: new mongoose.Types.ObjectId(currentUserId) }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'following',
+          foreignField: '_id',
+          as: 'followingUsers'
+        }
+      },
+      { $unwind: '$followingUsers' },
+      {
+        $match: {
+          'followingUsers.followers': new mongoose.Types.ObjectId(currentUserId)
+        }
+      },
+      { $count: 'total' }
+    ];
+
+    const [totalResult] = await userModel.aggregate(totalCountPipeline);
+    const totalRecords = totalResult ? totalResult.total : 0;
+    const totalPages = Math.ceil(totalRecords / limit);
+
+    const mutualFollowers = await userModel.aggregate([
+      {
+        $match: { _id: new mongoose.Types.ObjectId(currentUserId) }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'following',
+          foreignField: '_id',
+          as: 'followingUsers'
+        }
+      },
+      { $unwind: '$followingUsers' },
+      {
+        $match: {
+          'followingUsers.followers': new mongoose.Types.ObjectId(currentUserId)
+        }
+      },
+      {
+        $lookup: {
+          from: 'messages',
+          let: { recipientId: '$followingUsers._id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$sender', new mongoose.Types.ObjectId(currentUserId)] },
+                    { $eq: ['$receiver', '$$recipientId'] },
+                    { $eq: ['$isDeleted', false] }
+                  ]
+                }
+              }
+            },
+            { $sort: { createdAt: -1 } },
+            { $limit: 1 },
+            {
+              $project: {
+                _id: 0,
+                content: 1,
+                messageType: 1,
+                mediaUrl: 1,
+                createdAt: 1
+              }
+            }
+          ],
+          as: 'messageInfo'
+        }
+      },
+      {
+        $project: {
+          _id: '$followingUsers._id',
+          username: '$followingUsers.username',
+          profileImg: '$followingUsers.profileImg',
+          lastMessageDate: {
+            $ifNull: [
+              { $arrayElemAt: ['$messageInfo.createdAt', 0] },
+              null
+            ]
+          },
+          lastMessage: {
+            $cond: {
+              if: {
+                $eq: [
+                  { $arrayElemAt: ['$messageInfo.messageType', 0] },
+                  'text'
+                ]
+              },
+              then: { $arrayElemAt: ['$messageInfo.content', 0] },
+              else: {
+                $concat: [
+                  '[', { $arrayElemAt: ['$messageInfo.messageType', 0] }, '] ',
+                  { $ifNull: [{ $arrayElemAt: ['$messageInfo.mediaUrl', 0] }, ''] }
+                ]
+              }
+            }
+          }
+        }
+      },
+      {
+        $sort: {
+          lastMessageDate: -1,
+          username: 1
+        }
+      },
+      { $skip: skip },
+      { $limit: limit }
+    ]);
+
+    res.status(200).json({
+      success: true,
+      count: mutualFollowers.length,
+      data: mutualFollowers,
+      pagination: {
+        currentPage: page,
+        totalPages: totalPages,
+        totalRecords: totalRecords,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+        limit: limit
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching mutual followers:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch mutual followers',
+      error: error.message
+    });
+  }
+};
 
 
 // Utility function to generate room ID

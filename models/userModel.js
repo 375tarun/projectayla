@@ -20,7 +20,7 @@ const userSchema = new mongoose.Schema(
     profileImg: {
       type: String,
       default:
-        "https://res.cloudinary.com/dd0w16u7y/image/upload/v1747901121/Default_pfp_cdnt3u.jpg",
+        "https://res.cloudinary.com/dd0w16u7y/image/upload/v1750093131/Ayla_Placeholder_Image_klcrkf.png",
       required: false,
     },
     gender: {
@@ -32,7 +32,6 @@ const userSchema = new mongoose.Schema(
       type: Date,
       required: true,
     },
-
     country: {
       type: String,
       required: true,
@@ -44,11 +43,11 @@ const userSchema = new mongoose.Schema(
     password: {
       type: String,
     },
-    googleId: {
-      type: String,
-      unique: true,
-      sparse: true,
-    }, // For Google OAuth users
+    // googleId: {
+    //   type: String,
+    //   unique: true,
+    //   sparse: true,
+    // }, // For Google OAuth users
     isEmailVerified: {
       type: Boolean,
       default: false,
@@ -71,12 +70,13 @@ const userSchema = new mongoose.Schema(
         default: [],
       },
     ],
-    access: {
-      type: [String],
-      enum: ["Post", "Chat", "Room"],
-      default: ["Post", "Chat", "Room"],
-      required: true,
-    },
+    blockedUsers: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User", 
+        default: [],
+      },
+    ],
   },
   { timestamps: true }
 );

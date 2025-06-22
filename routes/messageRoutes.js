@@ -8,8 +8,8 @@ import {
   deleteMessage,sendAssetMessage,
   verifyToken,
   upload,
-  getConversationRecipients
-
+  getConversationRecipients,
+getMutualFollowers
 } from '../controllers/messageController.js';
 import { authCheck } from '../middlewares/auth.middleware.js';
 
@@ -36,5 +36,8 @@ router.delete('/:messageId', authCheck, deleteMessage);
 router.post('/send-asset', authCheck, sendAssetMessage);
 
 router.get('/user/conversations', authCheck, getConversationRecipients);
+router.get('/user/mutual-followers', authCheck, getMutualFollowers);
+
+
 
 export default router;

@@ -12,28 +12,23 @@ import {
   getPopularHashtags,getAllHashtags
 } from "../controllers/postController.js";
 import { authCheck } from "../middlewares/auth.middleware.js";
-import { checkAccess } from "./../middlewares/auth.middleware.js";
+// import  } from "./../middlewares/auth.middleware.js";
 
 
 const router = express.Router();
 
-router.get("/", authCheck, checkAccess, getAllPost);
-router.get("/userpost", authCheck, checkAccess, getUserPost);
-router.post("/create", authCheck, checkAccess, createPost);
-router.post("/like/:id", authCheck, checkAccess, likeUnlikePost);
-router.post("/comment/:id", authCheck, checkAccess, commentOnPost);
-router.get("/post-comments/:id", authCheck, checkAccess, getCommentsByPost);
+router.get("/", authCheck, getAllPost);
+router.get("/userpost", authCheck, getUserPost);
+router.post("/create", authCheck, createPost);
+router.post("/like/:id", authCheck, likeUnlikePost);
+router.post("/comment/:id", authCheck, commentOnPost);
+router.get("/post-comments/:id", authCheck, getCommentsByPost);
 
-router.delete("/delete/:id", authCheck, checkAccess, deletePost);
-router.post("/edit/:id", authCheck, checkAccess, editPost);
+router.delete("/delete/:id", authCheck, deletePost);
+router.post("/edit/:id", authCheck, editPost);
 
-router.get(
-  "/getHashtag/:hashtagId",
-  authCheck,
-  checkAccess,
-  getHashtagWithPosts
-);
-router.get("/getPopularHashtags", authCheck, checkAccess, getPopularHashtags);
-router.get("/getAllHashtags", authCheck, checkAccess, getAllHashtags);
+router.get("/getHashtag/:hashtagId",authCheck,getHashtagWithPosts);
+router.get("/getPopularHashtags", authCheck, getPopularHashtags);
+router.get("/getAllHashtags", authCheck, getAllHashtags);
 
 export default router;
